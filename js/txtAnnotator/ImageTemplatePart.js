@@ -38,7 +38,7 @@ tvs.ImageTemplatePart.prototype.getCssBackground = function(color) {
 /**
  * @override
  */
-tvs.ImageTemplatePart.prototype.applyToElement = function(element, prevEl, 
+tvs.ImageTemplatePart.prototype.applyToElement = function(element, prevEl,
     annotationRect, partIndex, partsCount, color, starCost) {
 
         var bgIsSet = false;
