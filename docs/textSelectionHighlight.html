@@ -43,22 +43,54 @@
 比如  abc def abc hjk
 如果选择了第二个abc，会高亮第一个和第二个abc，虽然也不好，
 但至少用户不会觉得自己选中的没有高亮而是去高亮一个不相关的地方，</p>
-<h2 id="-">选中部分可以改进的。</h2>
-<p>现在用户选择什么就是什么，哪怕用户选择一个单词当中的一个字母。
-可以改进为最小选择区域是一个单词。即使用户选择了一个字母，也扩展为字母所在的单词。
+<h2 id="-">改进选中部分。</h2>
+<p>即使用户选择了一个字母，也扩展为字母所在的单词。
 这个行为和kindle保持一致。
-实现方式未想到。</p>
+使用方法，正则：
+捕获 零个或多个非空白且非’&gt;’字符 加鼠标选中的字符 加 零个或多个非空白且非’&lt;’或’&gt;’字符
+中的鼠标选中字符。</p>
 
         
           <div class='highlight'><pre>    $(<span class="hljs-string">'#yuedu'</span>).mouseup(<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(e)</span> </span>{
         <span class="hljs-keyword">var</span> content, re, replacement, newHTML, oldHTML, target;
-        content = <span class="hljs-built_in">window</span>.getSelection().toString();
-        re = <span class="hljs-keyword">new</span> <span class="hljs-built_in">RegExp</span>(content,<span class="hljs-string">"g"</span>); <span class="hljs-comment">// 为了在正则中用变量，只能用regexp构造方法</span>
-        replacement = <span class="hljs-string">"&lt;span class='annotation'&gt;"</span> + content + <span class="hljs-string">"&lt;/span&gt;"</span>
+
+        { <span class="hljs-keyword">try</span>{</pre></div>
+        
+      
+        
+        <p>non-IE</p>
+
+        
+          <div class='highlight'><pre>            content = <span class="hljs-built_in">document</span>.getSelection().toString();
+        } <span class="hljs-keyword">catch</span> (err) {</pre></div>
+        
+      
+        
+        <p>IE</p>
+
+        
+          <div class='highlight'><pre>            content = <span class="hljs-built_in">document</span>.selection.createRange().text;
+            }
+        }</pre></div>
+        
+      
+        
+        <ol>
+<li>为了在正则中用变量，只能用regexp构造方法。</li>
+<li>捕获content的括号分散在前后两个正则中，在js的正则使用变量只能这样。脏乱差啊。
+ruby中很干净啦 Regexp.new(“ (#{a}) “)</li>
+<li>content前面去匹配html的结束符号’&gt;’，后面是去匹配hmtl标签的开始符号’&lt;’。</li>
+</ol>
+
+        
+          <div class='highlight'><pre>        re = <span class="hljs-keyword">new</span> <span class="hljs-built_in">RegExp</span>(<span class="hljs-string">'([^ &gt;]*'</span> + content + <span class="hljs-string">'[^ &lt;]*)'</span>, <span class="hljs-string">"g"</span>);
         <span class="hljs-keyword">if</span> (content !== <span class="hljs-string">''</span>) {
             target = e.target;
             oldHTML = target.innerHTML;
-            newHTML = oldHTML.replace(re, replacement);
+            newHTML = oldHTML.replace(re, <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(sel)</span> </span>{
+                <span class="hljs-built_in">console</span>.log(sel);
+                <span class="hljs-keyword">return</span> <span class="hljs-string">"&lt;span class='annotation'&gt;"</span> + sel + <span class="hljs-string">"&lt;/span&gt;"</span>
+            });
             <span class="hljs-keyword">return</span> target.innerHTML = newHTML;
         }
     });</pre></div>
@@ -73,15 +105,31 @@
 如果选择了第二个abc，会高亮第一个和第二个abc，虽然也不好，
 但如果点击第二个abc触发取消高亮，第一个abc不会关联也取消的。
 这是正确的方式。只是由于实现高亮用了错误的方式，才让这个取消功能也变得有点怪。</p>
-<h3 id="-">现在取消高亮的实现方式还存在一个问题，</h3>
-<p>就是如果选取的高亮只有一两个字符，点击取消的时候，会出现没有取消，反而高亮了更多的文字。
-产生原因是用户觉得自己只是点了一下鼠标，实际dom检测到的是点下鼠标的时候稍微移动了一下。
-解决方法暂时没想出来。</p>
+
+        
+      
+        
+        <p>取消高亮的时候，我们不但要取消css类，也应该取消span。否则遗留在页面的span会有时让
+页面混乱。还好，有jquery帮忙。</p>
 
         
           <div class='highlight'><pre>    $(<span class="hljs-string">'#yuedu'</span>).delegate(<span class="hljs-string">"span"</span>, <span class="hljs-string">"click"</span>, <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(e)</span> </span>{
+        <span class="hljs-keyword">var</span> text = $(<span class="hljs-keyword">this</span>).text();
         <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'triggered!'</span>);
-        $(<span class="hljs-keyword">this</span>).toggleClass(<span class="hljs-string">'annotation'</span>);
+        $(<span class="hljs-keyword">this</span>).replaceWith(text);
+    });</pre></div>
+        
+      
+        
+        <p>需要有这个事件监听。它会在用户试图选中已经高亮的区域时先取消掉高亮。
+如果不这样做。用户再次选择已经高亮区域的部分文字，会出现嵌套的span。
+在某些情况下让页面异常混乱。</p>
+
+        
+          <div class='highlight'><pre>    $(<span class="hljs-string">'#yuedu'</span>).delegate(<span class="hljs-string">"span"</span>, <span class="hljs-string">"mousedown"</span>, <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">(e)</span> </span>{
+        <span class="hljs-keyword">var</span> text = $(<span class="hljs-keyword">this</span>).text();
+        <span class="hljs-built_in">console</span>.log(<span class="hljs-string">'triggered!'</span>);
+        $(<span class="hljs-keyword">this</span>).replaceWith(text);
     });
 })();</pre></div>
         
@@ -91,8 +139,9 @@
 <p><a href="http://zhidao.baidu.com/link?url=DukzamGwQXO308uHAqEWqr0kAvyVP6FBKc0uXNGE0kt_fRuBIIuiMpm8HkIDR0ChlYxBBNkCu22Fma3maKEDlEfq0n6RST7ziKioRLsBEGu">http://zhidao.baidu.com/link?url=DukzamGwQXO308uHAqEWqr0kAvyVP6FBKc0uXNGE0kt_fRuBIIuiMpm8HkIDR0ChlYxBBNkCu22Fma3maKEDlEfq0n6RST7ziKioRLsBEGu</a>
 这个实现是错误的，简单的正则替换，会替换文章中第一次出现的选中词，而不是选中词。
 比如  abc def abc hjk
-如果选择了第二个abc，会高亮第一个abc，而第二个abc根本没变化。非常让人疑惑
-document.onmouseup=function(e){
+如果选择了第二个abc，会高亮第一个abc，而第二个abc根本没变化。非常让人疑惑</p>
+<p>而且这个例子的代码也真是脏乱差啊。</p>
+<p>document.onmouseup=function(e){
     content=window.getSelection().toString();
     if(content!=’’){
         var len=content.length;
